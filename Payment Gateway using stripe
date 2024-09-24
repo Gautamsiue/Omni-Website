@@ -1,0 +1,58 @@
+import stripe
+from flask import Flask, render_template, request, jsonify
+
+# Initialize the Flask application
+app = Flask(__name__)
+
+# Set your secret key: remember to change this to your live secret key in production
+# See your keys here: https://dashboard.stripe.com/apikeys
+stripe.api_key = 'sk_test_4eC39HqLyjWDarjtT1zdp7dc'
+
+# Define ticket prices
+TICKET_PRICES = {
+    'concert': 50,
+    'movie': 15,
+    'sports': 30
+}
+
+@app.route('/')
+def index():
+    return render_template('payment_gateway.html')
+
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    event = request.form['event']
+    quantity = int(request.form['quantity'])
+    total_cost = TICKET_PRICES[event] * quantity
+
+    try:
+        # Create a new Stripe Checkout Session
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': event + ' Ticket',
+                    },
+                    'unit_amount': total_cost * 100,  # Amount in cents
+                },
+                'quantity': quantity,
+            }],
+            mode='payment',
+            success_url='http://localhost:5000/success',
+            cancel_url='http://localhost:5000/cancel',
+        )
+        return jsonify({'id': checkout_session.id})
+    except Exception as e:
+        return jsonify(error=str(e)), 403
+
+@app.route('/success')
+def success():
+    return 'Payment successful!'
+
+@app.route('/cancel')
+def cancel():
+    return 'Payment canceled.'
+
+print('Flask app with Stripe integration is set up. To run it, use app.run() in a separate Python script.')
